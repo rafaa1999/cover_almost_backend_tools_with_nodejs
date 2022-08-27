@@ -4,7 +4,7 @@
   "description": "we try to deal with some technicals backend to develop a nodejs application",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+   "start": "nodemon index.js"
   },
   "author": "rafaa benrhouma",
   "license": "ISC",
