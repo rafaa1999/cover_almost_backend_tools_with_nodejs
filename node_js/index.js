@@ -6,7 +6,17 @@ const app=express()
 //using the middeleware
 app.use(express.json())
 
-sequelize.sync({force:true}).then(()=>console.log('database is ready'))
+
+sequelize.sync({force:true}).then(async()=>{
+    for (let i=1; i<= 25;i++){
+        const user ={
+            username:`user${i}`,
+            email:`user${i}@gmail.com`,
+            password:`pg458`
+        }
+        await User.create(user)
+    }
+})
 
 
 //insert user
@@ -25,9 +35,36 @@ app.post('/users',async(req,res)=>{
 // get all users
 
 app.get('/users',async(req,res)=>{
+
+    const pageAsNumber=Number.parseInt(req.query.page)
+    const sizeAsNumber=Number.parseInt(req.query.size)
+
+    let page=0
+
+    if(!Number.isNaN(pageAsNumber) && pageAsNumber >0){
+        page = pageAsNumber
+    }
+
+    let size=10
+     
+    if(!Number.isNaN(sizeAsNumber) && sizeAsNumber>0 && sizeAsNumber<10){
+        
+            size=sizeAsNumber
+    
+    }
+
+    
     try {
-        const users =await User.findAll()
-         res.send(users)
+        const users =await User.findAndCountAll({
+            // limit used to get limit number of data
+            limit:size,  
+            offset:page*size
+
+              })
+         res.send({
+            content: users.rows,
+            totalPages: Math.ceil(users.count / size)
+         })
     } catch (err) {
         console.error(err.message)
         return res.status(500).json(err)
