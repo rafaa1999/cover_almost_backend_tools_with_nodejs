@@ -25,7 +25,7 @@ a fully functional example backend_project use all these concept :
 
 ## Technologies
 - Nodejs
-- Sequelize using(sqlite)
+- Sequelize using (sqlite)
 - Javascript
 - Express js 
 
