@@ -1,20 +1,37 @@
 const express = require('express')
 const sequelize =require('./db')
 const User =require('./models/User')
+const Article=require('./models/Articles')
+
+
 
 const app=express()
 //using the middeleware
 app.use(express.json())
 
 
+// this middleware will work with every request 
+// used for get the nature of req 
+const thisWillRunInEveryRequest=(req,res,next)=>{
+    console.log('runnig the middleware for all',req.method,req.originalUrl)
+    next()
+}
+
+
+app.use(thisWillRunInEveryRequest)
+
 sequelize.sync({force:true}).then(async()=>{
-    for (let i=1; i<= 5;i++){
+    for (let i=1; i<= 15;i++){
         const user ={
             username:`user${i}`,
             email:`user${i}@gmail.com`,
             password:`pg458`
         }
         await User.create(user)
+        const article={
+            content:`article content ${i}`
+        }
+        await Article.create(article)
     }
 })
 
@@ -32,9 +49,10 @@ app.post('/users',async(req,res)=>{
     }
 })
 
-// get all users
 
-app.get('/users',async(req,res)=>{
+
+const pagination=(req,res,next)=>{
+
     // pagination
     const pageAsNumber=Number.parseInt(req.query.page)
     const sizeAsNumber=Number.parseInt(req.query.size)
@@ -50,10 +68,22 @@ app.get('/users',async(req,res)=>{
     if(!Number.isNaN(sizeAsNumber) && sizeAsNumber>0 && sizeAsNumber<10){
         
             size=sizeAsNumber
-    
     }
 
+    req.pagination={
+        page:page,
+        size:size
+    }
+    next()
+}
+
+
+// get all users
+
+app.get('/users',pagination,async(req,res)=>{
     
+    const {page,size}=req.pagination
+
     try {
         const users =await User.findAndCountAll({
             // limit used to get limit number of data
@@ -72,10 +102,34 @@ app.get('/users',async(req,res)=>{
     }
 })
 
+// get all articles
+app.get('/articles',pagination,async(req,res)=>{
+
+    const {page,size}=req.pagination
+
+    try {
+        const articles =await Article.findAndCountAll({
+            // limit used to get limit number of data
+            limit:size,  
+            offset:page*size
+
+              })
+         res.send({
+            content: articles.rows,
+            // give user number of pages 
+            totalPages: Math.ceil(articles.count / size)
+         })
+    } catch (err) {
+        console.error(err.message)
+        return res.status(500).json(err)
+    }
+})
+
+
+
+
 //get userr by id
 // using next to throw the exeption to the exeption route
-
-
 
 /* 
 
@@ -96,42 +150,41 @@ function InvalidIdExeption(){
     this.message="Invalid id"
 }
 
-
-
 function UserNotFoundExeption(){
     this.status=404,
     this.message="User not found"
 }
 
 
-app.get('/users/:id',async(req,res,next)=>{
-
+// using middleware
+const isNumberControl=(req,res,next)=>{
     const req_id=Number.parseInt(req.params.id)
-
-    
-    try {
         //id must be number
         //route hundler
-
         if(Number.isNaN(req_id)){
-            next( new InvalidIdExeption())
+            throw new InvalidIdExeption()
         }
+        //put next coz if we're not puting next the middleware will stuck her either the id is correct
+        next()
+}
 
+
+
+app.get('/users/:id',isNumberControl,async(req,res,next)=>{
+
+    const req_id=req.params.id
         const users =await User.findOne({where:{id:req_id}})
-        //  res.send(users)
+         //  res.send(users)
          // user may be not found
          if(!users){
-            next(new UserNotFoundExeption())
-         }
-
-        } catch (err) {
-            console.error(err.message)
-            return res.status(500).json(err)
-        }
+             // we use next coz we have async function
+             next(new UserNotFoundExeption())
+            }
+        res.send(users)
 })
 
 //udpate user
-app.put('/users/:id',async(req,res)=>{
+app.put('/users/:id',isNumberControl,async(req,res)=>{
     const req_id=req.params.id
     try {
         const user =await User.findOne({where:{id:req_id}})
@@ -146,7 +199,7 @@ app.put('/users/:id',async(req,res)=>{
 
 // delete user 
 
-app.delete('/users/:id',async(req,res)=>{
+app.delete('/users/:id',isNumberControl,async(req,res)=>{
     const req_id=req.params.id
     try {
         const user =await User.destroy({where:{id:req_id}})
